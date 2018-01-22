@@ -58,15 +58,15 @@ export let encodePrimitive = (primitive: BencodablePrimitive, encoding: Encoding
 
 /**
  * Bencode an Array.
- * @param {BencodablePrimitive[]} array An Array of BencodablePrimitives.
+ * @param {Bencodable[]} array An Array of Bencodable.
  * @param {Encoding} encoding Optional encoding, defaults to 'utf-8'.
  * @returns {Try<Buffer[]>} A Try Buffer Array instance.
  */
-export let encodeArray = (array: BencodablePrimitive[], encoding: Encoding): Try<Buffer[]> => {
+export let encodeArray = (array: Bencodable[], encoding: Encoding): Try<Buffer[]> => {
   let pre = Buffer.from(Tokens.list_start, encoding);
   let post = Buffer.from(Tokens.type_end, encoding);
 
-  return array.map(v => encodePrimitive(v, encoding))
+  return array.map(v => encode(v, encoding))
     .reduce((v1, v2) => {
       return v1.zipWith(v2, (a, b) => a.concat([b]));
     }, Try.success<Buffer[]>([]))
@@ -75,11 +75,11 @@ export let encodeArray = (array: BencodablePrimitive[], encoding: Encoding): Try
 
 /**
  * Bencode a Map.
- * @param {Map<string,BencodablePrimitive>} map A Map instance.
+ * @param {Map<string,Bencodable>} map A Map instance.
  * @param {Encoding} encoding Optional encoding, defaults to 'utf-8'.
  * @returns {Try<Buffer[]>} A Try Buffer Array instance.
  */
-export let encodeMap = (map: Map<string,BencodablePrimitive>, encoding: Encoding): Try<Buffer[]> => {
+export let encodeMap = (map: Map<string,Bencodable>, encoding: Encoding): Try<Buffer[]> => {
   let pre = Buffer.from(Tokens.dictionary_start, encoding);
   let post = Buffer.from(Tokens.type_end, encoding);
   let keys = Array.from(map.keys()).sort();
@@ -88,7 +88,7 @@ export let encodeMap = (map: Map<string,BencodablePrimitive>, encoding: Encoding
   for (let key of keys) {
     let value = Try.unwrap(map.get(key), `Missing value for key ${key}`);
     let keyBuffer = encodeString(key, encoding);
-    let valueBuffer = value.flatMap(v => encodePrimitive(v, encoding));
+    let valueBuffer = value.flatMap(v => encode(v, encoding));
     buffers.push(Try.success(keyBuffer));
     buffers.push(valueBuffer);
   }

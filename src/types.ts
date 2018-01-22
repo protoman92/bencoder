@@ -7,10 +7,10 @@ export type BencodablePrimitive = boolean | ByteString | number;
 
 /// Represents all the types that can be bencoded.
 export type Bencodable =
+  any[] |
   BencodablePrimitive |
-  BencodablePrimitive[] |
-  JSObject<BencodablePrimitive> |
-  Map<string,BencodablePrimitive>;
+  JSObject<any> |
+  Map<string,any>;
 
 /**
  * Check if an object is a bencodable primitive.
