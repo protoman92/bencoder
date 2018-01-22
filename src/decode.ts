@@ -1,9 +1,12 @@
-import { Collections, Numbers, Try } from 'javascriptutilities';
+import { Collections, JSObject, Nullable, Numbers, Try } from 'javascriptutilities';
 import * as Tokens from './tokens';
 import { Bencodable, Encoding } from './types';
 
 /// Use this to represent the return types for composing decode functions.
 type OffsetT<T> = Try<[T, number]>;
+
+/// Use this to control whether to keep iterating.
+type WhileFn = (lValue: Nullable<Bencodable>, lOff: number, cOff: number) => boolean;
 
 /**
  * Convert a buffer to a byte string Array.
@@ -144,59 +147,101 @@ export let decodeList = (bytes: string[], offset: number): OffsetT<Bencodable[]>
   return Try.success(bytes)
     .flatMap(v => Collections.elementAtIndex(v, offset))
     .filter(v => v === Tokens.list_start, v => `Invalid list token: ${v}`)
-    .flatMap(() => decodeAny(bytes, offset + 1, v => bytes[v] === Tokens.type_end));
+    .flatMap(() => decodeAny(bytes, offset + 1, (_v1, _v2, v3) => {
+      return bytes[v3] !== Tokens.type_end;
+    }));
 };
 
-// let decodeDictionary = (bytes: string[], offset: number): Try<[void, number]> => {
-//   console.log(bytes, offset);
-//   return Try.success<[void, number]>([undefined, 1]);
-// };
+/**
+ * Decode a bencoded dictionary and return it along with the new offset position.
+ * @param {string[]} bytes A byte string Array.
+ * @param {number} offset A number value.
+ * @returns {OffsetT<JSObject<Bencodable>>} An OffsetT instance.
+ */
+export let decodeDictionary = (bytes: string[], offset: number): OffsetT<JSObject<Bencodable>> => {
+  return Try.success(bytes)
+    .flatMap(v => Collections.elementAtIndex(v, offset))
+    .filter(v => v === Tokens.dictionary_start, v => `Invalid dict token: ${v}`)
+    .map((): [JSObject<Bencodable>, number] => {
+      let startOffset = offset + 1;
+      var currentOffset = startOffset;
+      var dict: JSObject<Bencodable> = {};
+
+      while (bytes[currentOffset] !== Tokens.type_end) {
+        let decodedKey = decodeString(bytes, currentOffset).getOrThrow();
+        currentOffset = decodedKey[1];
+        
+        let decodedValue = decodeAny(bytes, currentOffset, (v1, v2, v3) => {
+          console.log(v1, typeof v1, v2, v3, bytes[v3]);
+          if (typeof v1 === 'string') {
+            return (v3 - v2) !== (v1.length + 1 + ('' + v1.length).length);
+          } else {
+            return bytes[v3] !== Tokens.type_end;
+          }
+        }).getOrThrow();
+        
+        let key = decodedKey[0];
+        let value = decodedValue[0];
+        currentOffset = decodedValue[1];
+        dict[key] = value;
+      }
+
+      return [dict, currentOffset];
+    });
+};
 
 /**
  * Decode any type that is bencodable and return it along with the new offset
  * position.
  * @param {string[]} bytes A byte string Array.
  * @param {number} offset A number value.
- * @param {(cOffset: number) => boolean} stopFn Stop condition selector.
+ * @param {WhileFn} whileFn While condition selector.
  * @returns {OffsetT<Bencodable[]>} An OffsetT instance.
  */
-let decodeAny = (bytes: string[], offset: number, stopFn: (cOffset: number) => boolean): OffsetT<Bencodable[]> => {
+let decodeAny = (bytes: string[], offset: number, whileFn: WhileFn): OffsetT<Bencodable[]> => {
+  var lastDecoded: Nullable<Bencodable>;
+  var oldOffset = offset;
   var newOffset = offset;
 
   try {
     var bencodables: Bencodable[] = [];
 
-    while (!stopFn(newOffset)) {
+    while (whileFn(lastDecoded, oldOffset, newOffset)) {
       let type = Collections.elementAtIndex(bytes, newOffset).getOrThrow();
+      oldOffset = newOffset;
       
       switch (type) {
-        // case Tokens.dictionary_start:
-        //   let dDecoded = decodeDictionary(bytes, newOffset).getOrThrow();
-        //   newOffset = dDecoded[1];
-        //   bencodables.push(dDecoded[0]);
-        //   break;
+        case Tokens.dictionary_start:
+          let dDecoded = decodeDictionary(bytes, newOffset).getOrThrow();
+          lastDecoded = dDecoded[0];
+          newOffset = dDecoded[1];
+          bencodables.push(dDecoded[0]);
+          break;
 
         case Tokens.list_start:
           let lDecoded = decodeList(bytes, newOffset).getOrThrow();
+          lastDecoded = lDecoded[0];
           newOffset = lDecoded[1];
           bencodables.push(lDecoded[0]);
           break;
 
         case Tokens.int_start:
           let iDecoded = decodeInteger(bytes, newOffset).getOrThrow();
+          lastDecoded = iDecoded[0];
           newOffset = iDecoded[1];
           bencodables.push(iDecoded[0]);
           break;
 
         default:
           let sDecoded = decodeString(bytes, newOffset).getOrThrow();
+          lastDecoded = sDecoded[0];
           newOffset = sDecoded[1];
           bencodables.push(sDecoded[0]);
           break;
       }
     }
 
-    return Try.success<[Bencodable[], number]>([bencodables, newOffset + 1]);
+    return Try.success<[Bencodable[], number]>([bencodables, newOffset]);
   } catch (e) {
     return Try.failure(e);
   }
@@ -207,44 +252,9 @@ let decodeAny = (bytes: string[], offset: number, stopFn: (cOffset: number) => b
  * position.
  * @param {string[]} bytes A byte string Array.
  * @param {number} offset A number value.
- * @returns {Try<[void, number]>} A Try tuple instance.
+ * @returns {OffsetT<Bencodable[]>} An OffsetT instance.
  */
-let decodeBytes = (bytes: string[], offset: number): Try<[void, number]> => {
+let decodeBytes = (bytes: string[], offset: number): OffsetT<Bencodable[]> => {
   let totalCount = bytes.length;
-  var newOffset = offset;
-
-  try {
-    while (newOffset < totalCount) {
-      let type = Collections.elementAtIndex(bytes, newOffset).getOrThrow();
-      var bencodables: Bencodable[] = [];
-      
-      switch (type) {
-        // case Tokens.dictionary_start:
-        //   let dDecoded = decodeDictionary(bytes, newOffset).getOrThrow();
-        //   newOffset = dDecoded[1];
-        //   bencodables.push(dDecoded[0]);
-        //   break;
-
-        case Tokens.list_start:
-          let lDecoded = decodeList(bytes, newOffset).getOrThrow();
-          newOffset = lDecoded[1];
-          bencodables = bencodables.concat(lDecoded[0]);
-          break;
-
-        case Tokens.int_start:
-          let iDecoded = decodeInteger(bytes, newOffset).getOrThrow();
-          newOffset = iDecoded[1];
-          break;
-
-        default:
-          let sDecoded = decodeString(bytes, newOffset).getOrThrow();
-          newOffset = sDecoded[1];
-          break;
-      }
-    }
-
-    return Try.success<[void, number]>([undefined, newOffset]);
-  } catch (e) {
-    return Try.failure(e);
-  }
+  return decodeAny(bytes, offset, (_v1, _v2, v3) => v3 < totalCount);
 };

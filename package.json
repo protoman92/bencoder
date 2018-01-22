@@ -1,5 +1,5 @@
 {
-  "name": "bencoder",
+  "name": "bencoder-js",
   "version": "1.0.0",
   "description": "Bencode encoder/decoder for .torrent files.",
   "main": "./dist/src/index.js",
@@ -8,17 +8,19 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/protoman92/bencoder.git"
+    "url": "git+https://github.com/protoman92/bencoder-js.git"
   },
   "keywords": [
+    "bencode",
+    "bittorrent",
     "p2p"
   ],
   "author": "Hai Pham",
   "license": "Apache-2.0",
   "bugs": {
-    "url": "https://github.com/protoman92/bencoder/issues"
+    "url": "https://github.com/protoman92/bencoder-js/issues"
   },
-  "homepage": "https://github.com/protoman92/bencoder#readme",
+  "homepage": "https://github.com/protoman92/bencoder-js#readme",
   "devDependencies": {
     "@types/jest": "^22.0.1",
     "jest": "^22.1.4",
