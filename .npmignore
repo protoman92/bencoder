@@ -1,7 +1,6 @@
 .travis.yml
 .vscode
 .vscode/*
-*.torrent
 coverage
 dist_webpack
 package-lock.json

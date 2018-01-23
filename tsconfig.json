@@ -7,7 +7,7 @@
     "outDir": "dist",
     "declaration": true,
     "module": "commonjs",
-    "noUnusedLocals": true,
+    "noUnusedLocals": false,
     "noUnusedParameters": true, 
     "noImplicitAny": true,
     "noImplicitReturns": true,

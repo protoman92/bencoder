@@ -80,7 +80,7 @@ export let encodeArray = (array: Bencodable[], encoding: Encoding): Try<Buffer[]
  * @returns {Try<Buffer[]>} A Try Buffer Array instance.
  */
 export let encodeMap = (map: Map<string,Bencodable>, encoding: Encoding): Try<Buffer[]> => {
-  let pre = Buffer.from(Tokens.dictionary_start, encoding);
+  let pre = Buffer.from(Tokens.dict_start, encoding);
   let post = Buffer.from(Tokens.type_end, encoding);
   let keys = Array.from(map.keys()).sort();
   var buffers: Try<Buffer>[] = [];

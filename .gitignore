@@ -2,7 +2,6 @@
 .env
 .vscode
 .vscode/*
-*.torrent
 coverage
 dist
 dist_webpack

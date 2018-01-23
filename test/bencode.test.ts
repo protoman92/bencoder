@@ -18,8 +18,7 @@ describe('Individual bencoding mechanisms should work correctly', () => {
       .doOnNext(v => {
         /// When
         let encoded = Bencode.Encoder.encode(v, encoding).getOrThrow();
-        let bytes = Bencode.Decoder.toByteString(encoded, encoding);
-        let decoded = Bencode.Decoder.decodeString(bytes, 0).getOrThrow();
+        let decoded = Bencode.Decoder.decodeString(encoded, 0, encoding).getOrThrow();
         let value = decoded[0];
         let length = ('' + value.length).length;
         let offsetLength = decoded[1];
@@ -40,8 +39,7 @@ describe('Individual bencoding mechanisms should work correctly', () => {
       .doOnNext(v => {
         /// When
         let encoded = Bencode.Encoder.encode(v, encoding).getOrThrow();
-        let bytes = Bencode.Decoder.toByteString(encoded, encoding);
-        let decoded = Bencode.Decoder.decodeInteger(bytes, 0).getOrThrow();
+        let decoded = Bencode.Decoder.decodeInteger(encoded, 0, encoding).getOrThrow();
         let value = decoded[0];
         let offsetLength = decoded[1];
 
@@ -77,8 +75,7 @@ describe('Individual bencoding mechanisms should work correctly', () => {
       .doOnNext(v => {
         /// When
         let encoded = Bencode.Encoder.encode(v, encoding).getOrThrow();
-        let bytes = Bencode.Decoder.toByteString(encoded, encoding);
-        let decoded = Bencode.Decoder.decodeList(bytes, 0).getOrThrow();
+        let decoded = Bencode.Decoder.decodeList(encoded, 0, encoding).getOrThrow();
         let value = decoded[0];
         let offsetLength = decoded[1];
 
@@ -113,9 +110,8 @@ describe('Individual bencoding mechanisms should work correctly', () => {
       })
       .doOnNext(v => {
         /// When
-        let encoded = Bencode.Encoder.encode(v, encoding).getOrThrow();
-        let bytes = Bencode.Decoder.toByteString(encoded, encoding);
-        let decoded = Bencode.Decoder.decodeDictionary(bytes, 0).getOrThrow();
+        let encoded = Bencode.Encoder.encode(v, encoding).getOrThrow(); 
+        let decoded = Bencode.Decoder.decodeDict(encoded, 0, encoding).getOrThrow();
         let value = decoded[0];
         let offsetLength = decoded[1]; 
 
@@ -126,4 +122,15 @@ describe('Individual bencoding mechanisms should work correctly', () => {
       .doOnCompleted(() => done())
       .subscribe();
   }, timeout);
+});
+
+describe('Decoding torrent files should work correctly', () => {
+  it.only('Decoding test torrent file should work correctly', done => {
+    /// Setup
+    Bencode.Decoder.decodeLocalFile('./test/test.torrent', encoding)
+      .map(v => v.getOrThrow())
+      .logNext()
+      .doOnCompleted(() => done())
+      .subscribe();
+  });
 });
