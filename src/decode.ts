@@ -5,7 +5,7 @@ import { Bencodable, Encoding } from './types';
 /// Use this to represent the return types for composing decode functions.
 type OffsetT<T> = Try<[T, number]>;
 
-/// Use this to control whether to keep iterating.
+/// Use this for 'decodeAny' to control whether to keep iterating.
 type WhileFn = (lValue: Nullable<Bencodable>, lOff: number, cOff: number) => boolean;
 
 /**
@@ -149,7 +149,8 @@ export let decodeList = (bytes: string[], offset: number): OffsetT<Bencodable[]>
     .filter(v => v === Tokens.list_start, v => `Invalid list token: ${v}`)
     .flatMap(() => decodeAny(bytes, offset + 1, (_v1, _v2, v3) => {
       return bytes[v3] !== Tokens.type_end;
-    }));
+    }))
+    .map((v): [Bencodable[], number] => [v[0], v[1] + 1]);
 };
 
 /**
@@ -171,22 +172,18 @@ export let decodeDictionary = (bytes: string[], offset: number): OffsetT<JSObjec
         let decodedKey = decodeString(bytes, currentOffset).getOrThrow();
         currentOffset = decodedKey[1];
         
-        let decodedValue = decodeAny(bytes, currentOffset, (v1, v2, v3) => {
-          console.log(v1, typeof v1, v2, v3, bytes[v3]);
-          if (typeof v1 === 'string') {
-            return (v3 - v2) !== (v1.length + 1 + ('' + v1.length).length);
-          } else {
-            return bytes[v3] !== Tokens.type_end;
-          }
+        let decodedValue = decodeAny(bytes, currentOffset, (_v1, v2, v3) => {
+          /// These two values are equal only in the first iteration.
+          return v2 === v3;
         }).getOrThrow();
         
         let key = decodedKey[0];
-        let value = decodedValue[0];
+        let value = Collections.first(decodedValue[0]).getOrThrow();
         currentOffset = decodedValue[1];
         dict[key] = value;
       }
 
-      return [dict, currentOffset];
+      return [dict, currentOffset + 1];
     });
 };
 
