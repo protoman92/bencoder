@@ -2,7 +2,8 @@ import { Observable } from 'rxjs';
 import * as fs from 'fs';
 import { Collections, JSObject, Nullable, Numbers, Try } from 'javascriptutilities';
 import * as Tokens from './tokens';
-import { Bencodable, Encoding } from './types';
+import { Bencodable, MetaInfoType, Encoding } from './types';
+import * as Types from './types';
 
 /// Use this to represent the return types for composing decode functions.
 type OffsetT<T> = Try<[T, number]>;
@@ -23,15 +24,15 @@ export type FSReadOption = { encoding?: string, flags?: string };
  */
 let findNextDelimiter = (buff: Buffer, offset: number, e: Encoding): Try<number> => {
   try {
-    var newOffset = offset;
-    let delimiter = Tokens.delimiter_buff(e)[0];
+    var nOffset = offset;
+    let delimiter = Tokens.delimiter_buff(e);
 
-    while (buff[newOffset] !== delimiter) {
-      Try.unwrap(buff[newOffset]).getOrThrow();
-      newOffset += 1;
+    while (buff[nOffset] !== delimiter) {
+      Try.unwrap(buff[nOffset], `No value found at ${nOffset}`).getOrThrow();
+      nOffset += 1;
     }
     
-    return Try.unwrap(newOffset);
+    return Try.unwrap(nOffset);
   } catch (e) {
     return Try.failure(e);
   }
@@ -62,7 +63,7 @@ let decodeStringLength = (buff: Buffer, offset: number, e: Encoding): OffsetT<nu
  * @returns {OffsetT<string>} An OffsetT instance.
  */
 let decodeStringContent = (buff: Buffer, offset: number, length: number, e: Encoding): OffsetT<string> => {
-  let delimiter = Tokens.delimiter_buff(e)[0];
+  let delimiter = Tokens.delimiter_buff(e);
 
   return Try.success(buff).map(v => v[offset])
     .filter(v => v === delimiter, v => `Incorrect delimiter: ${v}`)
@@ -95,8 +96,8 @@ export let decodeString = (buff: Buffer, offset: number, e: Encoding): OffsetT<s
  * @returns {OffsetT<number>} An OffsetT instance.
  */
 export let decodeInteger = (buff: Buffer, offset: number, e: Encoding): OffsetT<number> => {
-  let int_start = Tokens.int_start_buff(e)[0];
-  let type_end = Tokens.type_end_buff(e)[0];
+  let int_start = Tokens.int_start_buff(e);
+  let type_end = Tokens.type_end_buff(e);
 
   return Try.success(buff).map(v => v[offset])
     .filter(v => v === int_start, v => `Incorrect token: ${v}`)
@@ -127,8 +128,8 @@ export let decodeInteger = (buff: Buffer, offset: number, e: Encoding): OffsetT<
  * @returns {OffsetT<Bencodable[]>} An OffsetT instance.
  */
 export let decodeList = (buff: Buffer, offset: number, e: Encoding): OffsetT<Bencodable[]> => {
-  let list_start = Tokens.list_start_buff(e)[0];
-  let type_end = Tokens.type_end_buff(e)[0];
+  let list_start = Tokens.list_start_buff(e);
+  let type_end = Tokens.type_end_buff(e);
 
   return Try.success(buff).map(v => v[offset])
     .filter(v => v === list_start, v => `Invalid list token: ${v}`)
@@ -146,8 +147,8 @@ export let decodeList = (buff: Buffer, offset: number, e: Encoding): OffsetT<Ben
  * @returns {OffsetT<JSObject<Bencodable>>} An OffsetT instance.
  */
 export let decodeDict = (buff: Buffer, offset: number, e: Encoding): OffsetT<JSObject<Bencodable>> => {
-  let dict_start = Tokens.dict_start_buff(e)[0];
-  let type_end = Tokens.type_end_buff(e)[0];
+  let dict_start = Tokens.dict_start_buff(e);
+  let type_end = Tokens.type_end_buff(e);
 
   return Try.success(buff).map((v): any => v[offset])
     .filter(v => v === dict_start, v => `Invalid dict token: ${v}`)
@@ -188,9 +189,10 @@ let decodeAny = (buff: Buffer, offset: number, e: Encoding, whileFn: WhileFn): O
   var lastDecoded: Nullable<Bencodable>;
   var oOffset = offset;
   var nOffset = offset;
-  let dict_start_buff = Tokens.dict_start_buff(e)[0];
-  let int_start_buff = Tokens.int_start_buff(e)[0];
-  let list_start_buff = Tokens.list_start_buff(e)[0];
+  let dict_start_buff = Tokens.dict_start_buff(e);
+  let int_start_buff = Tokens.int_start_buff(e);
+  let list_start_buff = Tokens.list_start_buff(e);
+  let string_start_buff = Tokens.string_start_buff(e);
 
   try {
     var bencodables: Bencodable[] = [];
@@ -199,33 +201,37 @@ let decodeAny = (buff: Buffer, offset: number, e: Encoding, whileFn: WhileFn): O
       let type = Try.unwrap(buff[nOffset]).getOrThrow();
       oOffset = nOffset;
       
-      switch (type) {
-        case dict_start_buff:
+      switch (true) {
+        case type === dict_start_buff:
           let dDecoded = decodeDict(buff, nOffset, e).getOrThrow();
           lastDecoded = dDecoded[0];
           nOffset = dDecoded[1];
           bencodables.push(dDecoded[0]);
           break;
 
-        case list_start_buff:
+        case type === list_start_buff:
           let lDecoded = decodeList(buff, nOffset, e).getOrThrow();
           lastDecoded = lDecoded[0];
           nOffset = lDecoded[1];
           bencodables.push(lDecoded[0]);
           break;
 
-        case int_start_buff:
+        case type === int_start_buff:
           let iDecoded = decodeInteger(buff, nOffset, e).getOrThrow();
           lastDecoded = iDecoded[0];
           nOffset = iDecoded[1];
           bencodables.push(iDecoded[0]);
           break;
 
-        default:
+        case Collections.contains(string_start_buff, type):
           let sDecoded = decodeString(buff, nOffset, e).getOrThrow();
           lastDecoded = sDecoded[0];
           nOffset = sDecoded[1];
           bencodables.push(sDecoded[0]);
+          break;
+
+        default:
+          nOffset += 1;
           break;
       }
     }
@@ -260,25 +266,33 @@ export let decode = (buffer: Buffer, e: Encoding): Try<Bencodable[]> => {
 };
 
 /**
- * Decode a local .torrent file. Beware the the path is relative to the root
- * path of the directory.
+ * Read a local .torrent file into a buffer.
  * @param {string} path The path to the file.
- * @param {Encoding} e An Encoding instance.
- * @returns {Observable<Try<Bencodable>>} An Observable instance.
+ * @param {Encoding} e An Encoding instane.
+ * @returns {Observable<Try<Buffer>>} An Observable instance.
  */
-export let decodeLocalFile = (path: string, e: Encoding): Observable<Try<Bencodable>> => {
+export let readLocalFile = (path: string, e: Encoding): Observable<Try<Buffer>> => {
   type Callback = (err: NodeJS.ErrnoException, data: string | Buffer) => void;
   let bound = (p: string, o: FSReadOption, c: Callback): void => fs.readFile(p, o, c);
   
   return Observable
     .bindNodeCallback(bound)(path, {})
-    .map(v => {
-      if (typeof v === 'string') {
-        return Buffer.from(v, e);
-      } else {
-        return v;
-      }
-    })
-    .map(v => decode(v, e))
-    .map(v => v.flatMap(v1 => Collections.first(v1)));
+    .map(v => typeof v === 'string' ? Buffer.from(v, e) : v)
+    .map(v => Try.success(v))
+    .catchJustReturn(e => Try.failure(e));
+};
+
+/**
+ * Decode a local .torrent file. Beware the the path is relative to the root
+ * path of the directory.
+ * @param {string} path The path to the file.
+ * @param {Encoding} e An Encoding instance.
+ * @returns {Observable<Try<MetaInfoType>>} An Observable instance.
+ */
+export let decodeLocalFile = (path: string, e: Encoding): Observable<Try<MetaInfoType>> => {
+  return readLocalFile(path, e)
+    .map(v => v.flatMap(v1 => decode(v1, e)))
+    .map(v => v.flatMap(v1 => Collections.first(v1)))
+    .map(v => v.filter(v1 => Types.isMetaInfo(v1), v1 => `${v1} is not metainfo-compliant`))
+    .map(v => v.map(v1 => v1 as MetaInfoType));
 };

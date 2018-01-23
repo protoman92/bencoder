@@ -1,5 +1,5 @@
 import { Observable } from 'rxjs';
-import { Numbers, Objects, Strings } from 'javascriptutilities';
+import { Collections, Numbers, Objects, Strings } from 'javascriptutilities';
 import { Bencode } from './../src';
 
 let encoding = 'utf-8';
@@ -125,11 +125,36 @@ describe('Individual bencoding mechanisms should work correctly', () => {
 });
 
 describe('Decoding torrent files should work correctly', () => {
-  it.only('Decoding test torrent file should work correctly', done => {
+  it('Decoding test torrent file should work correctly', done => {
     /// Setup
-    Bencode.Decoder.decodeLocalFile('./test/test.torrent', encoding)
-      .map(v => v.getOrThrow())
-      .logNext()
+    let paths = [
+      'aia-terrain-test.torrent',
+      'arma2-test.torrent',
+      'blackmesa-test.torrent',
+      'crysis-demo-test.torrent',
+      'hubblecast-test.torrent',
+      'linux-test.torrent',
+      'stalker-test.torrent',
+      'test.torrent',
+    ];
+
+    Observable.from(paths).map(v => './test/' + v)
+      .flatMap(v => Observable.zip(
+        Bencode.Decoder.readLocalFile(v, encoding),
+        Bencode.Decoder.decodeLocalFile(v, encoding),
+        (v1, v2) => {
+          /// Then
+          let buffer = v1.getOrThrow();
+          let decoded = v2.getOrThrow();
+          let reEncoded = Bencode.Encoder.encode(decoded, encoding).getOrThrow();
+          let bufferStr = buffer.toString(encoding).split('');
+          let reEncodedStr = reEncoded.toString(encoding).split('');
+          expect(decoded.announce).toBeTruthy();
+          expect(decoded.info).toBeTruthy();
+          Collections.zip(bufferStr, reEncodedStr, (v1, v2) => expect(v1).toBe(v2));
+        }
+      ))
+      .doOnError(e => fail(e))
       .doOnCompleted(() => done())
       .subscribe();
   });

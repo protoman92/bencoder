@@ -1,4 +1,4 @@
-import { Indeterminate, JSObject } from 'javascriptutilities';
+import { Indeterminate, JSObject, Types } from 'javascriptutilities';
 
 export type Encoding = Indeterminate<string>;
 
@@ -32,7 +32,7 @@ export let isBencodablePrimitive = (obj: any): obj is BencodablePrimitive => {
 /**
  * Basic info dictionary in a .torrent file. 
  */
-interface BaseInfoDictType {
+export interface BaseInfoDictType {
   pieces: string;
   'piece length': number;
   'private'?: number;
@@ -42,7 +42,7 @@ interface BaseInfoDictType {
  * Info dictionary for single-file torrents.
  * @extends BaseInfoDictType Base extension.
  */
-interface SingleFileInfoDictType extends BaseInfoDictType {
+export interface SingleFileInfoDictType extends BaseInfoDictType {
   name: string;
   length: number;
   md5sum?: string;
@@ -52,7 +52,7 @@ interface SingleFileInfoDictType extends BaseInfoDictType {
  * Info dictionary for multi-file torrents.
  * @extends BaseInfoDictType Base extension.
  */
-interface MultiFileInfoDictType extends BaseInfoDictType {
+export interface MultiFileInfoDictType extends BaseInfoDictType {
   name: string;
   files: {
     name: string;
@@ -63,19 +63,29 @@ interface MultiFileInfoDictType extends BaseInfoDictType {
 
 /**
  * Represents the metainfo file structure of a .torrent file.
+ * @extends {JSObject<Bencodable>} JSObject extension.
  */
-export interface MetainfoType {
+export interface MetaInfoType extends JSObject<Bencodable> {
   announce: string;
   comment?: string;
-
-  info: {
-    pieces: string;
-    'piece length': number;
-    'private'?: number;
-  };
-
+  info: SingleFileInfoDictType | MultiFileInfoDictType;
   'announce-list'?: string[][];
   'creation date'?: number;
   'created by'?: string;
   'encoding'?: string;
 }
+
+/**
+ * Check if an object is a metainfo dictionary.
+ * @param {any} * Any object.
+ * @returns {obj is MetaInfoType} A boolean value.
+ */
+export let isMetaInfo = (obj: any): obj is MetaInfoType => {
+  let requiredKeys = ['announce', 'info'];
+  let requiredInfoKeys = ['pieces', 'piece length'];
+
+  return true 
+    && Types.isInstance<MetaInfoType>(obj, ...requiredKeys)
+    && Types.isInstance<BaseInfoDictType>(obj['info'], ...requiredInfoKeys)
+    && requiredKeys.every(v => obj[v] !== undefined && obj[v] !== null);
+};
