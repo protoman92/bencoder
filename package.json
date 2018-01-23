@@ -1,6 +1,6 @@
 {
   "name": "bencoder-js",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Bencode encoder/decoder for .torrent files.",
   "main": "./dist/src/index.js",
   "scripts": {

@@ -2,7 +2,6 @@ import { Observable } from 'rxjs';
 import { Collections, Numbers, Objects, Strings } from 'javascriptutilities';
 import { Bencode } from './../src';
 
-let encoding = 'utf-8';
 let timeout = 10;
 
 describe('Individual bencoding mechanisms should work correctly', () => {
@@ -17,8 +16,8 @@ describe('Individual bencoding mechanisms should work correctly', () => {
       .map(v => v.join(''))
       .doOnNext(v => {
         /// When
-        let encoded = Bencode.Encoder.encode(v, encoding).getOrThrow();
-        let decoded = Bencode.Decoder.decodeString(encoded, 0, encoding).getOrThrow();
+        let encoded = Bencode.Encoder.encode(v).getOrThrow();
+        let decoded = Bencode.Decoder.decodeString(encoded, 0).getOrThrow();
         let value = decoded[0];
         let length = ('' + value.length).length;
         let offsetLength = decoded[1];
@@ -26,7 +25,7 @@ describe('Individual bencoding mechanisms should work correctly', () => {
         /// Then
         expect(value).toBe(v);
         expect(offsetLength).toBe(v.length + length + 1);
-        expect(offsetLength).toBe(encoded.toString(encoding).length);
+        expect(offsetLength).toBe(encoded.toString().length);
       })
       .doOnCompleted(() => done())
       .subscribe();
@@ -38,15 +37,15 @@ describe('Individual bencoding mechanisms should work correctly', () => {
       .map(() => Numbers.randomBetween(0, 100000))
       .doOnNext(v => {
         /// When
-        let encoded = Bencode.Encoder.encode(v, encoding).getOrThrow();
-        let decoded = Bencode.Decoder.decodeInteger(encoded, 0, encoding).getOrThrow();
+        let encoded = Bencode.Encoder.encode(v).getOrThrow();
+        let decoded = Bencode.Decoder.decodeInteger(encoded, 0).getOrThrow();
         let value = decoded[0];
         let offsetLength = decoded[1];
 
         /// Then
         expect(value).toBe(v);
         expect(offsetLength).toBe(('' + value).length + 2);
-        expect(offsetLength).toBe(encoded.toString(encoding).length);
+        expect(offsetLength).toBe(encoded.toString().length);
       })
       .doOnCompleted(() => done())
       .subscribe();
@@ -74,14 +73,14 @@ describe('Individual bencoding mechanisms should work correctly', () => {
       })
       .doOnNext(v => {
         /// When
-        let encoded = Bencode.Encoder.encode(v, encoding).getOrThrow();
-        let decoded = Bencode.Decoder.decodeList(encoded, 0, encoding).getOrThrow();
+        let encoded = Bencode.Encoder.encode(v).getOrThrow();
+        let decoded = Bencode.Decoder.decodeList(encoded, 0).getOrThrow();
         let value = decoded[0];
         let offsetLength = decoded[1];
 
         /// Then
         expect(value).toEqual(v);
-        expect(offsetLength).toBe(encoded.toString(encoding).length);
+        expect(offsetLength).toBe(encoded.toString().length);
       })
       .doOnCompleted(() => done())
       .subscribe();
@@ -110,14 +109,14 @@ describe('Individual bencoding mechanisms should work correctly', () => {
       })
       .doOnNext(v => {
         /// When
-        let encoded = Bencode.Encoder.encode(v, encoding).getOrThrow(); 
-        let decoded = Bencode.Decoder.decodeDict(encoded, 0, encoding).getOrThrow();
+        let encoded = Bencode.Encoder.encode(v).getOrThrow(); 
+        let decoded = Bencode.Decoder.decodeDict(encoded, 0).getOrThrow();
         let value = decoded[0];
         let offsetLength = decoded[1]; 
 
         /// Then
         expect(value).toEqual(v);
-        expect(offsetLength).toBe(encoded.toString(encoding).length);
+        expect(offsetLength).toBe(encoded.toString().length);
       })
       .doOnCompleted(() => done())
       .subscribe();
@@ -140,15 +139,15 @@ describe('Decoding torrent files should work correctly', () => {
 
     Observable.from(paths).map(v => './test/' + v)
       .flatMap(v => Observable.zip(
-        Bencode.Decoder.readLocalFile(v, encoding),
-        Bencode.Decoder.decodeLocalFile(v, encoding),
+        Bencode.Decoder.readLocalFile(v),
+        Bencode.Decoder.decodeLocalFile(v),
         (v1, v2) => {
           /// Then
           let buffer = v1.getOrThrow();
           let decoded = v2.getOrThrow();
-          let reEncoded = Bencode.Encoder.encode(decoded, encoding).getOrThrow();
-          let bufferStr = buffer.toString(encoding).split('');
-          let reEncodedStr = reEncoded.toString(encoding).split('');
+          let reEncoded = Bencode.Encoder.encode(decoded).getOrThrow();
+          let bufferStr = buffer.toString().split('');
+          let reEncodedStr = reEncoded.toString().split('');
           expect(decoded.announce).toBeTruthy();
           expect(decoded.info).toBeTruthy();
           Collections.zip(bufferStr, reEncodedStr, (v1, v2) => expect(v1).toBe(v2));

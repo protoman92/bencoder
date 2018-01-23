@@ -1,7 +1,5 @@
 import { Indeterminate, JSObject, Types } from 'javascriptutilities';
 
-export type Encoding = Indeterminate<string>;
-
 /// Represents all primitive types that can be bencoded.
 export type BencodablePrimitive = boolean | ByteString | number;
 
