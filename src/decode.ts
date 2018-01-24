@@ -235,25 +235,27 @@ let decodeAny = (buff: Buffer, offset: number, whileFn: WhileFn): OffsetT<Bencod
 };
 
 /**
- * Decode a buffer.
+ * Decode a bencoded piece of data.
  * @param {Buffer} buff A Buffer instance.
- * @param {number} offset A number value.
- * @returns {OffsetT<Bencodable[]>} An OffsetT instance.
+ * @returns {Try<Bencodable>} A Try Bencodable instance.
  */
-let decodeBuffer = (buff: Buffer, offset: number): OffsetT<Bencodable[]> => {
-  return decodeAny(buff, offset, (_v1, _v2, v3) => buff[v3] !== undefined);
+export let decodeBuffer = (buff: Buffer): Try<Bencodable[]> => {
+  return Try.success(buff)
+    .filter(v => v.length >= 0, `Data ${buff} is empty`)
+    .flatMap(v => decodeAny(v, 0, (_v1, _v2, v3) => buff[v3] !== undefined))
+    .map(v => v[0]);
 };
 
 /**
- * Decode a bencoded piece of data.
+ * Decode a .torrent file content from a buffer.
  * @param {Buffer} buffer A Buffer instance.
- * @returns {Try<Bencodable>} A Try Bencodable instance.
+ * @returns {Try<MetaInfoType>} A Try MetaInfoType instance.
  */
-export let decode = (buffer: Buffer): Try<Bencodable[]> => {
-  return Try.success(buffer)
-    .filter(v => v.length >= 0, `Data ${buffer} is empty`)
-    .flatMap(v => decodeBuffer(v, 0))
-    .map(v => v[0]);
+export let decodeTorrent = (buffer: Buffer): Try<MetaInfoType> => {
+  return decodeBuffer(buffer)
+    .flatMap(v => Collections.first(v))
+    .filter(v1 => Types.isMetaInfo(v1), v1 => `${v1} is not metainfo-compliant`)
+    .map(v => v as MetaInfoType);
 };
 
 /**
@@ -279,9 +281,5 @@ export let readLocalFile = (path: string): Observable<Try<Buffer>> => {
  * @returns {Observable<Try<MetaInfoType>>} An Observable instance.
  */
 export let decodeLocalFile = (path: string): Observable<Try<MetaInfoType>> => {
-  return readLocalFile(path)
-    .map(v => v.flatMap(v1 => decode(v1)))
-    .map(v => v.flatMap(v1 => Collections.first(v1)))
-    .map(v => v.filter(v1 => Types.isMetaInfo(v1), v1 => `${v1} is not metainfo-compliant`))
-    .map(v => v.map(v1 => v1 as MetaInfoType));
+  return readLocalFile(path).map(v => v.flatMap(v1 => decodeTorrent(v1)));
 };
