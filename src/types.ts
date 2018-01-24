@@ -1,7 +1,7 @@
 import { Indeterminate, JSObject, Types } from 'javascriptutilities';
 
 /// Represents all primitive types that can be bencoded.
-export type BencodablePrimitive = boolean | ByteString | number;
+export type BencodablePrimitive = boolean | number | string;
 
 /// Represents all the types that can be bencoded.
 export type Bencodable =
