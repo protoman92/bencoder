@@ -2,6 +2,7 @@ language: nodejs
 
 before_script:
   - npm run setup
+  - npm install codecov -g
   - npm run build
 
 script:
@@ -9,3 +10,4 @@ script:
 
 after_success:
   - npm pack
+  - codecov
